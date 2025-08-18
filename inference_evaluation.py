@@ -23,37 +23,43 @@ MODEL_CONFIGS = {
         'model_name': 'Qwen/Qwen3-0.6b',
         'device_map': 'auto',
         'torch_dtype': "auto",
-        'max_new_tokens': 32768
+        'max_new_tokens': 32768,
+        'max_length': 2048
     },
     'qwen1.7b': {
         'model_name': 'Qwen/Qwen3-1.7b',
         'device_map': 'auto',
         'torch_dtype': "auto",
-        'max_new_tokens': 32768
+        'max_new_tokens': 32768,
+        'max_length': 2048
     },
     'qwen4b': {
         'model_name': 'Qwen/Qwen3-4B',
         'device_map': 'auto',
         'torch_dtype': "auto",
-        'max_new_tokens': 32768
+        'max_new_tokens': 32768,
+        'max_length': 2048
     },
     'qwen8b': {
         'model_name': 'Qwen/Qwen3-8B',
         'device_map': 'auto',
         'torch_dtype': "auto",
-        'max_new_tokens': 32768
+        'max_new_tokens': 32768,
+        'max_length': 2048
     },
     'qwen14b': {
         'model_name': 'Qwen/Qwen3-14B',
         'device_map': 'auto',
         'torch_dtype': "auto",
-        'max_new_tokens': 32768
+        'max_new_tokens': 32768,
+        'max_length': 2048
     },
     'qwen32b': {
         'model_name': 'Qwen/Qwen3-32B',
         'device_map': 'auto',
         'torch_dtype': "auto",
-        'max_new_tokens': 32768
+        'max_new_tokens': 32768,
+        'max_length': 2048
     }
 }
 
@@ -77,50 +83,136 @@ def load_model_and_tokenizer(model_config: Dict):
     tokenizer = AutoTokenizer.from_pretrained(model_name)
             
     model = AutoModelForCausalLM.from_pretrained(
-            model_name,
-            torch_dtype="auto",
-            device_map="auto",
-            trust_remote_code=True
-        )
-    model = model.to(device)
+        model_name,
+        torch_dtype="auto",
+        device_map="auto",
+        trust_remote_code=True
+    )
     
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
     
     return model, tokenizer
 
+def get_default_templates(dataset_name: str) -> Dict:
+    """Get default templates for each dataset if not provided."""
+    templates = {
+        'mmlu': {
+            'zero_shot': "Question: {question}\nChoices: {choices}\nAnswer:",
+            'few_shot': "Here are some examples:\n\n{examples}\n\nNow answer this question:\nQuestion: {question}\nChoices: {choices}\nAnswer:",
+            'example_format': "Question: {question}\nChoices: {choices}\nAnswer: ({answer}) {answer_text}"
+        },
+        'bb': {
+            'zero_shot': "Statement: {statement}\nIs this statement plausible? Answer Yes or No:",
+            'few_shot': "Here are some examples:\n\n{examples}\n\nNow answer this:\nStatement: {statement}\nIs this statement plausible? Answer Yes or No:",
+            'example_format': "Statement: {inputs}\nAnswer: {answer}"
+        },
+        'gsm8k': {
+            'zero_shot': "Problem: {problem}\nSolution:",
+            'few_shot': "Here are some examples:\n\n{examples}\n\nNow solve this problem:\nProblem: {problem}\nSolution:",
+            'example_format': "Problem: {question}\nSolution: {answer}"
+        },
+        'sst2': {
+            'zero_shot': "Text: {text}\nSentiment (positive or negative):",
+            'few_shot': "Here are some examples:\n\n{examples}\n\nNow classify this text:\nText: {text}\nSentiment (positive or negative):",
+            'example_format': "Text: {text}\nSentiment: {label_text}"
+        },
+        'sst5': {
+            'zero_shot': "Text: {text}\nSentiment (very negative, negative, neutral, positive, very positive):",
+            'few_shot': "Here are some examples:\n\n{examples}\n\nNow classify this text:\nText: {text}\nSentiment (very negative, negative, neutral, positive, very positive):",
+            'example_format': "Text: {text}\nSentiment: {label_text}"
+        }
+    }
+    return templates.get(dataset_name, {})
+
+def format_single_example(example: Dict, dataset_name: str, template: str = None) -> str:
+    """Format a single example based on dataset type."""
+    if template is None:
+        templates = get_default_templates(dataset_name)
+        template = templates.get('example_format', '')
+    
+    try:
+        if dataset_name == 'mmlu':
+            choices_str = ', '.join([f"({i}) {choice}" for i, choice in enumerate(example['choices'])])
+            answer_text = example['choices'][example['answer']]
+            return template.format(
+                question=example['question'],
+                choices=choices_str,
+                answer=example['answer'],
+                answer_text=answer_text
+            )
+        elif dataset_name == 'bb':
+            answer = "Yes" if example['multiple_choice_targets'][0] == "Yes" else "No"
+            return template.format(
+                inputs=example['inputs'],
+                answer=answer
+            )
+        elif dataset_name == 'gsm8k':
+            return template.format(
+                question=example['question'],
+                answer=example['answer']
+            )
+        elif dataset_name in ['sst2', 'sst5']:
+            return template.format(
+                text=example['text'],
+                label_text=example['label_text']
+            )
+    except KeyError as e:
+        print(f"Warning: Missing key {e} in example for dataset {dataset_name}")
+        return f"Example formatting error for {dataset_name}"
+    
+    return "Unsupported dataset format"
+
 def format_prompt_for_inference(test_example: Dict, selected_examples: List[Dict], 
                                templates: Dict, dataset_name: str) -> str:
     """Format the prompt for inference."""
+    # Use default templates if not provided or incomplete
+    if not templates or not all(key in templates for key in ['zero_shot', 'few_shot']):
+        print(f"Warning: Using default templates for {dataset_name}")
+        templates = get_default_templates(dataset_name)
+    
     if not selected_examples:  # Zero-shot
         template = templates['zero_shot']
-        if dataset_name == 'mmlu':
-            choices_str = ', '.join([f"({i}) {choice}" for i, choice in enumerate(test_example['choices'])])
-            return template.format(question=test_example['question'], choices=choices_str)
-        elif dataset_name == 'bb':
-            return template.format(statement=test_example['inputs'])
-        elif dataset_name == 'gsm8k':
-            return template.format(problem=test_example['question'])
-        elif dataset_name in ['sst2', 'sst5']:
-            return template.format(text=test_example['text'])
+        try:
+            if dataset_name == 'mmlu':
+                choices_str = ', '.join([f"({i}) {choice}" for i, choice in enumerate(test_example['choices'])])
+                return template.format(question=test_example['question'], choices=choices_str)
+            elif dataset_name == 'bb':
+                return template.format(statement=test_example['inputs'])
+            elif dataset_name == 'gsm8k':
+                return template.format(problem=test_example['question'])
+            elif dataset_name in ['sst2', 'sst5']:
+                return template.format(text=test_example['text'])
+        except KeyError as e:
+            print(f"Error formatting zero-shot prompt for {dataset_name}: {e}")
+            return f"Error formatting prompt: missing {e}"
     else:  # Few-shot
-        from example_selection import format_example
+        # Format examples
         example_strings = []
+        example_template = templates.get('example_format', '')
+        
         for example in selected_examples:
-            example_strings.append(format_example(example, dataset_name, {'example_format': templates['example_format']}))
+            formatted_example = format_single_example(example, dataset_name, example_template)
+            example_strings.append(formatted_example)
         
         examples_text = '\n\n'.join(example_strings)
         template = templates['few_shot']
         
-        if dataset_name == 'mmlu':
-            choices_str = ', '.join([f"({i}) {choice}" for i, choice in enumerate(test_example['choices'])])
-            return template.format(examples=examples_text, question=test_example['question'], choices=choices_str)
-        elif dataset_name == 'bb':
-            return template.format(examples=examples_text, statement=test_example['inputs'])
-        elif dataset_name == 'gsm8k':
-            return template.format(examples=examples_text, problem=test_example['question'])
-        elif dataset_name in ['sst2', 'sst5']:
-            return template.format(examples=examples_text, text=test_example['text'])
+        try:
+            if dataset_name == 'mmlu':
+                choices_str = ', '.join([f"({i}) {choice}" for i, choice in enumerate(test_example['choices'])])
+                return template.format(examples=examples_text, question=test_example['question'], choices=choices_str)
+            elif dataset_name == 'bb':
+                return template.format(examples=examples_text, statement=test_example['inputs'])
+            elif dataset_name == 'gsm8k':
+                return template.format(examples=examples_text, problem=test_example['question'])
+            elif dataset_name in ['sst2', 'sst5']:
+                return template.format(examples=examples_text, text=test_example['text'])
+        except KeyError as e:
+            print(f"Error formatting few-shot prompt for {dataset_name}: {e}")
+            return f"Error formatting prompt: missing {e}"
+    
+    return "Unsupported dataset format"
 
 def generate_response(model, tokenizer, prompt: str, max_length: int = 2048) -> str:
     """Generate response from the model."""
@@ -213,12 +305,11 @@ def get_ground_truth(example: Dict, dataset_name: str) -> str:
     elif dataset_name in ['sst2', 'sst5']:
         return example['label_text']
 
-
-
 def run_inference(selection_file_path: str, model_name: str, output_dir: str = "results"):
     """Run inference on a selection file with specified model."""
     # Load selection data
     selection_data = load_selection_file(selection_file_path)
+    
     # Load model
     if model_name not in MODEL_CONFIGS:
         raise ValueError(f"Unknown model: {model_name}. Available: {list(MODEL_CONFIGS.keys())}")
@@ -230,13 +321,23 @@ def run_inference(selection_file_path: str, model_name: str, output_dir: str = "
     dataset_name = selection_data['dataset']
     method = selection_data['method']
     test_examples = selection_data['test_examples']
-    templates = selection_data['templates']
+    templates = selection_data.get('templates', {})
+    
+    # Ensure we have templates
+    if not templates:
+        templates = get_default_templates(dataset_name)
+        print(f"Using default templates for {dataset_name}")
     
     predictions = []
     ground_truths = []
     
+    print(f"Running inference on {len(test_examples)} test examples...")
+    
     # Standard inference for all methods
     for i, test_example in enumerate(test_examples):
+        if (i + 1) % 10 == 0:
+            print(f"Processing example {i + 1}/{len(test_examples)}")
+        
         # Get selected examples for this test case
         if method == 'zero_shot':
             selected_examples = []
@@ -248,7 +349,6 @@ def run_inference(selection_file_path: str, model_name: str, output_dir: str = "
             raise ValueError(f"Unknown method: {method}")
         
         # Format prompt
-        print("kanjut")
         prompt = format_prompt_for_inference(test_example, selected_examples, templates, dataset_name)
         
         # Generate response
@@ -257,9 +357,8 @@ def run_inference(selection_file_path: str, model_name: str, output_dir: str = "
         # Extract prediction
         predicted_answer = extract_answer(response, dataset_name)
         predictions.append(predicted_answer)
-    
-    # Get ground truth
-    for test_example in test_examples:
+        
+        # Get ground truth
         ground_truth = get_ground_truth(test_example, dataset_name)
         ground_truths.append(ground_truth)
     
@@ -495,7 +594,7 @@ def run_full_evaluation(selected_examples_dir: str = "selected_examples",
                        models: List[str] = None, output_dir: str = "results"):
     """Run inference and evaluation for all selection files and models."""
     if models is None:
-        models = ['qwen0.6b', 'qwen1.8b', 'qwen3b', 'qwen7b']
+        models = ['qwen0.6b', 'qwen1.7b']
     # Find all selection files
     selection_files = []
     for filename in os.listdir(selected_examples_dir):
@@ -520,13 +619,16 @@ def run_full_evaluation(selected_examples_dir: str = "selected_examples",
                 })
             except Exception as e:
                 print(f"Error processing {selection_file} with {model_name}: {e}")
+                import traceback
+                traceback.print_exc()
                 continue
     
     print(f"\nCompleted {len(all_results)} evaluations")
     
     # Generate plots
-    print("Generating plots...")
-    plot_results(output_dir)
+    if all_results:
+        print("Generating plots...")
+        plot_results(output_dir)
     
     return all_results
 
@@ -562,7 +664,7 @@ if __name__ == "__main__":
     # Run inference and evaluation
     results = run_full_evaluation(
         selected_examples_dir="selected_examples",
-        models=['qwen0.6b', 'qwen1.8b', 'qwen3b'], 
+        models=['qwen0.6b', 'qwen1.7b'], 
         output_dir="results"
     )
     
