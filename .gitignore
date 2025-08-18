@@ -1,4 +1,5 @@
-/selected_example/*.pkl
+/selected_example/
 /final-project
 /results
 /__pycache__
+*.pkl

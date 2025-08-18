@@ -132,6 +132,7 @@ def format_example(example_data: Dict, dataset_name: str, templates: Dict) -> st
             solution=example_data['answer']
         )
     elif dataset_name in ['sst2', 'sst5']:
+        # FIXED: Map 'label_text' from data to 'sentiment' in template
         return template.format(
             text=example_data['text'],
             sentiment=example_data['label_text']
