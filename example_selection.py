@@ -37,12 +37,12 @@ def get_prompt_templates():
         'sst2': {
             'zero_shot': "Text: {text}\nSentiment (positive/negative):",
             'few_shot': "{examples}\n\nText: {text}\nSentiment (positive/negative):",
-            'example_format': "Text: {text}\nSentiment: {sentiment}"
+            'example_format': "Text: {text}\nSentiment: {label_text}"
         },
         'sst5': {
             'zero_shot': "Text: {text}\nSentiment (very negative/negative/neutral/positive/very positive):",
             'few_shot': "{examples}\n\nText: {text}\nSentiment (very negative/negative/neutral/positive/very positive):",
-            'example_format': "Text: {text}\nSentiment: {sentiment}"
+            'example_format': "Text: {text}\nSentiment: {label_text}"
         }
     }
     return templates
@@ -132,10 +132,10 @@ def format_example(example_data: Dict, dataset_name: str, templates: Dict) -> st
             solution=example_data['answer']
         )
     elif dataset_name in ['sst2', 'sst5']:
-        # FIXED: Map 'label_text' from data to 'sentiment' in template
+        # FIXED: Use the actual column name from the data
         return template.format(
             text=example_data['text'],
-            sentiment=example_data['label_text']
+            label_text=example_data['label_text']  
         )
     else:
         raise ValueError(f"Unknown dataset: {dataset_name}")

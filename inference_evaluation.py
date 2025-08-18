@@ -20,7 +20,7 @@ import re
 # Model configurations - Updated for HPC usage
 MODEL_CONFIGS = {
     'qwen0.6b': {
-        'model_name': 'Qwen/Qwen3-0.6b',
+        'model_name': 'Qwen/Qwen3-0.6B',
         'device_map': 'auto',
         'torch_dtype': "auto",
         'max_new_tokens': 32768,
@@ -81,13 +81,11 @@ def load_model_and_tokenizer(model_config: Dict):
     print(f"Using device: {device}")
     
     tokenizer = AutoTokenizer.from_pretrained(model_name)
-            
     model = AutoModelForCausalLM.from_pretrained(
-        model_name,
-        torch_dtype="auto",
-        device_map="auto",
-        trust_remote_code=True
-    )
+    model_name,
+    torch_dtype="auto",
+    device_map="auto"
+)
     
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
@@ -115,12 +113,12 @@ def get_default_templates(dataset_name: str) -> Dict:
         'sst2': {
             'zero_shot': "Text: {text}\nSentiment (positive or negative):",
             'few_shot': "Here are some examples:\n\n{examples}\n\nNow classify this text:\nText: {text}\nSentiment (positive or negative):",
-            'example_format': "Text: {text}\nSentiment: {label_text}"
+            'example_format': "Text: {text}\nSentiment: {label_text}"  # FIXED: Use label_text
         },
         'sst5': {
             'zero_shot': "Text: {text}\nSentiment (very negative, negative, neutral, positive, very positive):",
             'few_shot': "Here are some examples:\n\n{examples}\n\nNow classify this text:\nText: {text}\nSentiment (very negative, negative, neutral, positive, very positive):",
-            'example_format': "Text: {text}\nSentiment: {label_text}"
+            'example_format': "Text: {text}\nSentiment: {label_text}"  # FIXED: Use label_text
         }
     }
     return templates.get(dataset_name, {})
@@ -153,13 +151,18 @@ def format_single_example(example: Dict, dataset_name: str, template: str = None
                 answer=example['answer']
             )
         elif dataset_name in ['sst2', 'sst5']:
+            # Use the actual column name from the data
             return template.format(
                 text=example['text'],
-                label_text=example['label_text']
+                label_text=example['label_text']  # This matches the actual data structure
             )
     except KeyError as e:
         print(f"Warning: Missing key {e} in example for dataset {dataset_name}")
-        return f"Example formatting error for {dataset_name}"
+        # Create a fallback format
+        if dataset_name in ['sst2', 'sst5']:
+            return f"Text: {example.get('text', 'N/A')}\nSentiment: {example.get('label_text', 'N/A')}"
+        else:
+            return f"Example formatting error for {dataset_name}: missing {e}"
     
     return "Unsupported dataset format"
 
