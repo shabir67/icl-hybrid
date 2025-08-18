@@ -14,6 +14,7 @@ from sklearn.cluster import KMeans
 from sklearn.metrics.pairwise import cosine_similarity
 from collections import Counter
 import random
+from datasets import load_dataset
 
 def get_prompt_templates():
     """Define prompt templates for different dataset types."""
@@ -49,7 +50,6 @@ def get_prompt_templates():
 def load_datasets():
     """Load all datasets and format them consistently."""
     datasets = {}
-    
     # MMLU
     df_mmlu = pd.read_parquet("hf://datasets/cais/mmlu/all/test-00000-of-00001.parquet")
     datasets['mmlu'] = {
@@ -78,7 +78,6 @@ def load_datasets():
     }
     
     # SST2
-    from datasets import load_dataset
     ds_sst2 = load_dataset("SetFit/sst2")
     dfs_sst2 = []
     for split in ds_sst2.keys():
@@ -335,23 +334,26 @@ def get_optimal_split_ratio(total_samples: int, min_demo: int = 100, min_test: i
         # If dataset too small, use 70/30 split
         demo_size = int(total_samples * 0.7)
         test_size = total_samples - demo_size
+        return demo_size, test_size
     elif total_samples < 1000:
         # Small datasets: use 80/20 split
         demo_size = int(total_samples * 0.8)
         test_size = total_samples - demo_size
+        return demo_size, test_size
     elif total_samples < 10000:
         # Medium datasets: use 90/10 split but cap test at 1000
         test_size = min(int(total_samples * 0.1), 1000)
         demo_size = total_samples - test_size
+        return demo_size, test_size
     else:
         # Large datasets: use fixed test size
         test_size = 1000
         demo_size = total_samples - test_size
+        return demo_size, test_size
     
 def run_example_selection(dataset_name: str, k: int = 16, output_dir: str = "selected_examples"):
     """Main function to run all example selection methods for a dataset."""
     print(f"Running example selection for {dataset_name}...")
-    
     # Load dataset
     datasets = load_datasets()
     if dataset_name not in datasets:

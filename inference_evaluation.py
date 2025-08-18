@@ -21,37 +21,37 @@ import re
 MODEL_CONFIGS = {
     'qwen0.6b': {
         'model_name': 'Qwen/Qwen3-0.6b',
-        'device_map': 'cuda',
+        'device_map': 'auto',
         'torch_dtype': "auto",
         'max_new_tokens': 32768
     },
     'qwen1.7b': {
         'model_name': 'Qwen/Qwen3-1.7b',
-        'device_map': 'cuda',
+        'device_map': 'auto',
         'torch_dtype': "auto",
         'max_new_tokens': 32768
     },
     'qwen4b': {
         'model_name': 'Qwen/Qwen3-4B',
-        'device_map': 'cuda',
+        'device_map': 'auto',
         'torch_dtype': "auto",
         'max_new_tokens': 32768
     },
     'qwen8b': {
         'model_name': 'Qwen/Qwen3-8B',
-        'device_map': 'cuda',
+        'device_map': 'auto',
         'torch_dtype': "auto",
         'max_new_tokens': 32768
     },
     'qwen14b': {
         'model_name': 'Qwen/Qwen3-14B',
-        'device_map': 'cuda',
+        'device_map': 'auto',
         'torch_dtype': "auto",
         'max_new_tokens': 32768
     },
     'qwen32b': {
         'model_name': 'Qwen/Qwen3-32B',
-        'device_map': 'cuda',
+        'device_map': 'auto',
         'torch_dtype': "auto",
         'max_new_tokens': 32768
     }
@@ -75,22 +75,14 @@ def load_model_and_tokenizer(model_config: Dict):
     print(f"Using device: {device}")
     
     tokenizer = AutoTokenizer.from_pretrained(model_name)
-    
-    # Load model with HPC-appropriate settings
-    if device.type == "cuda":
-        model = AutoModelForCausalLM.from_pretrained(
+            
+    model = AutoModelForCausalLM.from_pretrained(
             model_name,
-            torch_dtype=getattr(torch, model_config['torch_dtype']),
-            device_map="auto" if model_config['device_map'] is None else model_config['device_map'],
+            torch_dtype="auto",
+            device_map="auto",
             trust_remote_code=True
         )
-    else:
-        model = AutoModelForCausalLM.from_pretrained(
-            model_name,
-            torch_dtype=torch.float32,  # Use float32 for CPU
-            trust_remote_code=True
-        )
-        model = model.to(device)
+    model = model.to(device)
     
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
@@ -227,7 +219,6 @@ def run_inference(selection_file_path: str, model_name: str, output_dir: str = "
     """Run inference on a selection file with specified model."""
     # Load selection data
     selection_data = load_selection_file(selection_file_path)
-    
     # Load model
     if model_name not in MODEL_CONFIGS:
         raise ValueError(f"Unknown model: {model_name}. Available: {list(MODEL_CONFIGS.keys())}")
@@ -257,6 +248,7 @@ def run_inference(selection_file_path: str, model_name: str, output_dir: str = "
             raise ValueError(f"Unknown method: {method}")
         
         # Format prompt
+        print("kanjut")
         prompt = format_prompt_for_inference(test_example, selected_examples, templates, dataset_name)
         
         # Generate response
@@ -504,7 +496,6 @@ def run_full_evaluation(selected_examples_dir: str = "selected_examples",
     """Run inference and evaluation for all selection files and models."""
     if models is None:
         models = ['qwen0.6b', 'qwen1.8b', 'qwen3b', 'qwen7b']
-    
     # Find all selection files
     selection_files = []
     for filename in os.listdir(selected_examples_dir):
@@ -571,7 +562,7 @@ if __name__ == "__main__":
     # Run inference and evaluation
     results = run_full_evaluation(
         selected_examples_dir="selected_examples",
-        models=['qwen0.6b', 'qwen1.8b', 'qwen3b'],  # Adjust based on HPC availability
+        models=['qwen0.6b', 'qwen1.8b', 'qwen3b'], 
         output_dir="results"
     )
     

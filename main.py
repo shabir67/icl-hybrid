@@ -108,7 +108,7 @@ def main():
                        help='Size of demonstration pool')
     parser.add_argument('--test-size', type=int, default=100,
                        help='Size of test set')
-    parser.add_argument('--output-dir', default='selected_examples',
+    parser.add_argument('--output-dir', default='/Users/shabiras/hpc/selected_examples',
                        help='Output directory for selected examples')
     parser.add_argument('--results-dir', default='results',
                        help='Output directory for results')
