@@ -101,24 +101,24 @@ def get_default_templates(dataset_name: str) -> Dict:
             'example_format': "Question: {question}\nChoices: {choices}\nAnswer: ({answer}) {answer_text}"
         },
         'bb': {
-            'zero_shot': "Statement: {statement}\nIs this statement plausible? Answer Yes or No:",
-            'few_shot': "Here are some examples:\n\n{examples}\n\nNow answer this:\nStatement: {statement}\nIs this statement plausible? Answer Yes or No:",
+            'zero_shot': "Statement: {inputs}\nIs this statement plausible? Answer Yes or No:",  # FIXED: Use 'inputs'
+            'few_shot': "Here are some examples:\n\n{examples}\n\nNow answer this:\nStatement: {inputs}\nIs this statement plausible? Answer Yes or No:",  # FIXED: Use 'inputs'
             'example_format': "Statement: {inputs}\nAnswer: {answer}"
         },
         'gsm8k': {
-            'zero_shot': "Problem: {problem}\nSolution:",
-            'few_shot': "Here are some examples:\n\n{examples}\n\nNow solve this problem:\nProblem: {problem}\nSolution:",
-            'example_format': "Problem: {question}\nSolution: {answer}"
+            'zero_shot': "Problem: {question}\nSolution:",  # FIXED: Use 'question'
+            'few_shot': "Here are some examples:\n\n{examples}\n\nNow solve this problem:\nProblem: {question}\nSolution:",  # FIXED: Use 'question'
+            'example_format': "Problem: {question}\nSolution: {answer}"  # FIXED: Use 'question' and 'answer'
         },
         'sst2': {
             'zero_shot': "Text: {text}\nSentiment (positive or negative):",
             'few_shot': "Here are some examples:\n\n{examples}\n\nNow classify this text:\nText: {text}\nSentiment (positive or negative):",
-            'example_format': "Text: {text}\nSentiment: {label_text}"  # FIXED: Use label_text
+            'example_format': "Text: {text}\nSentiment: {label_text}"
         },
         'sst5': {
             'zero_shot': "Text: {text}\nSentiment (very negative, negative, neutral, positive, very positive):",
             'few_shot': "Here are some examples:\n\n{examples}\n\nNow classify this text:\nText: {text}\nSentiment (very negative, negative, neutral, positive, very positive):",
-            'example_format': "Text: {text}\nSentiment: {label_text}"  # FIXED: Use label_text
+            'example_format': "Text: {text}\nSentiment: {label_text}"
         }
     }
     return templates.get(dataset_name, {})
@@ -142,24 +142,27 @@ def format_single_example(example: Dict, dataset_name: str, template: str = None
         elif dataset_name == 'bb':
             answer = "Yes" if example['multiple_choice_targets'][0] == "Yes" else "No"
             return template.format(
-                inputs=example['inputs'],
+                inputs=example['inputs'],  # Use 'inputs' column
                 answer=answer
             )
         elif dataset_name == 'gsm8k':
             return template.format(
-                question=example['question'],
-                answer=example['answer']
+                question=example['question'],  # FIXED: Use 'question' column
+                answer=example['answer']       # FIXED: Use 'answer' column
             )
         elif dataset_name in ['sst2', 'sst5']:
-            # Use the actual column name from the data
             return template.format(
                 text=example['text'],
-                label_text=example['label_text']  # This matches the actual data structure
+                label_text=example['label_text']
             )
     except KeyError as e:
         print(f"Warning: Missing key {e} in example for dataset {dataset_name}")
-        # Create a fallback format
-        if dataset_name in ['sst2', 'sst5']:
+        # Create fallback formats
+        if dataset_name == 'gsm8k':
+            return f"Problem: {example.get('question', 'N/A')}\nSolution: {example.get('answer', 'N/A')}"
+        elif dataset_name == 'bb':
+            return f"Statement: {example.get('inputs', 'N/A')}\nAnswer: {example.get('multiple_choice_targets', ['N/A'])[0] if example.get('multiple_choice_targets') else 'N/A'}"
+        elif dataset_name in ['sst2', 'sst5']:
             return f"Text: {example.get('text', 'N/A')}\nSentiment: {example.get('label_text', 'N/A')}"
         else:
             return f"Example formatting error for {dataset_name}: missing {e}"
@@ -169,7 +172,6 @@ def format_single_example(example: Dict, dataset_name: str, template: str = None
 def format_prompt_for_inference(test_example: Dict, selected_examples: List[Dict], 
                                templates: Dict, dataset_name: str) -> str:
     """Format the prompt for inference."""
-    # Use default templates if not provided or incomplete
     if not templates or not all(key in templates for key in ['zero_shot', 'few_shot']):
         print(f"Warning: Using default templates for {dataset_name}")
         templates = get_default_templates(dataset_name)
@@ -181,9 +183,9 @@ def format_prompt_for_inference(test_example: Dict, selected_examples: List[Dict
                 choices_str = ', '.join([f"({i}) {choice}" for i, choice in enumerate(test_example['choices'])])
                 return template.format(question=test_example['question'], choices=choices_str)
             elif dataset_name == 'bb':
-                return template.format(statement=test_example['inputs'])
+                return template.format(inputs=test_example['inputs'])  # FIXED: Use 'inputs'
             elif dataset_name == 'gsm8k':
-                return template.format(problem=test_example['question'])
+                return template.format(question=test_example['question'])  # FIXED: Use 'question'
             elif dataset_name in ['sst2', 'sst5']:
                 return template.format(text=test_example['text'])
         except KeyError as e:
@@ -206,9 +208,9 @@ def format_prompt_for_inference(test_example: Dict, selected_examples: List[Dict
                 choices_str = ', '.join([f"({i}) {choice}" for i, choice in enumerate(test_example['choices'])])
                 return template.format(examples=examples_text, question=test_example['question'], choices=choices_str)
             elif dataset_name == 'bb':
-                return template.format(examples=examples_text, statement=test_example['inputs'])
+                return template.format(examples=examples_text, inputs=test_example['inputs'])  # FIXED: Use 'inputs'
             elif dataset_name == 'gsm8k':
-                return template.format(examples=examples_text, problem=test_example['question'])
+                return template.format(examples=examples_text, question=test_example['question'])  # FIXED: Use 'question'
             elif dataset_name in ['sst2', 'sst5']:
                 return template.format(examples=examples_text, text=test_example['text'])
         except KeyError as e:

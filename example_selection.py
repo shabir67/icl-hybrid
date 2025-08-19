@@ -25,14 +25,14 @@ def get_prompt_templates():
             'example_format': "Question: {question}\nChoices: {choices}\nAnswer: {answer}"
         },
         'bb': {
-            'zero_shot': "Statement: {statement}\nAnswer (Yes/No):",
-            'few_shot': "{examples}\n\nStatement: {statement}\nAnswer (Yes/No):",
-            'example_format': "Statement: {statement}\nAnswer: {answer}"
+            'zero_shot': "Statement: {inputs}\nAnswer (Yes/No):",  
+            'few_shot': "{examples}\n\nStatement: {inputs}\nAnswer (Yes/No):",  
+            'example_format': "Statement: {inputs}\nAnswer: {answer}" 
         },
         'gsm8k': {
-            'zero_shot': "Problem: {problem}\nSolution:",
-            'few_shot': "{examples}\n\nProblem: {problem}\nSolution:",
-            'example_format': "Problem: {problem}\nSolution: {solution}"
+            'zero_shot': "Problem: {question}\nSolution:", 
+            'few_shot': "{examples}\n\nProblem: {question}\nSolution:",  
+            'example_format': "Problem: {question}\nSolution: {answer}"  
         },
         'sst2': {
             'zero_shot': "Text: {text}\nSentiment (positive/negative):",
@@ -123,19 +123,18 @@ def format_example(example_data: Dict, dataset_name: str, templates: Dict) -> st
     elif dataset_name == 'bb':
         answer = "Yes" if example_data['multiple_choice_targets'][0] == "Yes" else "No"
         return template.format(
-            statement=example_data['inputs'],
+            inputs=example_data['inputs'],  # Use 'inputs' column
             answer=answer
         )
     elif dataset_name == 'gsm8k':
         return template.format(
-            problem=example_data['question'],
-            solution=example_data['answer']
+            question=example_data['question'],  # FIXED: Use 'question' column
+            answer=example_data['answer']       # FIXED: Use 'answer' column
         )
     elif dataset_name in ['sst2', 'sst5']:
-        # FIXED: Use the actual column name from the data
         return template.format(
             text=example_data['text'],
-            label_text=example_data['label_text']  
+            label_text=example_data['label_text']
         )
     else:
         raise ValueError(f"Unknown dataset: {dataset_name}")
