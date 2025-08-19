@@ -207,6 +207,43 @@ def quick_test():
     print("Quick test completed! Check 'test_selected_examples' directory.")
     print("For full inference testing, submit an HPC job with GPU resources.")
 
+def quick_test_with_inference():
+    """Run a quick test including inference (requires GPU)."""
+    print("Running quick test with inference for all datasets...")
+    print("WARNING: This requires GPU and will take longer!")
+    
+    config = create_experiment_config(
+        datasets=['mmlu', 'bb', 'gsm8k', 'sst2', 'sst5'],  # All datasets
+        methods=['zero_shot', 'random_shot', 'similarity_baseline', 'hybrid'],  
+        models=['qwen0.6b', 'qwen1.7b'],  # Smallest model
+        k=4,   # Very small k for speed
+        n_iters=1,
+        demo_size=200,  # Very small for speed
+        test_size=20    # Very small test set
+    )
+    
+    print_experiment_summary(config)  
+    
+    # Run full pipeline
+    print("\nRunning example selection...")
+    run_example_selection_pipeline(
+        datasets=config['datasets'],
+        k=config['parameters']['k'],
+        output_dir='test_selected_examples_with_inference'
+    )
+    
+    print("\nRunning inference...")
+    run_inference_pipeline(
+        models=config['models'],
+        selected_examples_dir='test_selected_examples_with_inference',
+        results_dir='test_results',
+        plots_dir='test_plots'
+    )
+    
+    print("\n" + "="*60)
+    print("FULL QUICK TEST COMPLETED!")
+    print("="*60)
+
 if __name__ == "__main__":
     import sys
     
@@ -215,6 +252,8 @@ if __name__ == "__main__":
             create_sample_config()
         elif sys.argv[1] == 'quick-test':
             quick_test()
+        elif sys.argv[1] == 'quick-test-full':
+            quick_test_with_inference()
         else:
             main()
     else:

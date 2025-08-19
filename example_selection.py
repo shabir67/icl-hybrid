@@ -351,7 +351,7 @@ def get_optimal_split_ratio(total_samples: int, min_demo: int = 100, min_test: i
         demo_size = total_samples - test_size
         return demo_size, test_size
     
-def run_example_selection(dataset_name: str, k: int = 16, output_dir: str = "selected_examples"):
+def run_example_selection(dataset_name: str, k: int = 8, output_dir: str = "selected_examples"):
     """Main function to run all example selection methods for a dataset."""
     print(f"Running example selection for {dataset_name}...")
     # Load dataset
