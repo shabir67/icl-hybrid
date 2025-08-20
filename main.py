@@ -1,7 +1,6 @@
 """
 Main runner script for the example selection and evaluation pipeline.
 """
-
 import argparse
 import os
 import sys
@@ -11,7 +10,7 @@ import json
 # Add current directory to path for imports
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from example_selection import run_example_selection
+from example_selection import run_example_selection run_example_selection_quick
 from inference_evaluation import run_full_evaluation, create_results_summary
 from utils import (
     create_experiment_config, 

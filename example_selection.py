@@ -402,6 +402,74 @@ def run_example_selection(dataset_name: str, k: int = 8, output_dir: str = "sele
     
     return methods
 
+def run_example_selection_quick(dataset_name: str, k: int = 16, output_dir: str = "selected_examples"):
+    """Main function to run all example selection methods for a dataset.
+    
+    Updated to use exactly 100 test questions and k*4 demonstration examples
+    (where 4 is the number of methods that need examples).
+    """
+    print(f"Running example selection for {dataset_name}...")
+    
+    # Load dataset
+    datasets = load_datasets()
+    if dataset_name not in datasets:
+        raise ValueError(f"Unknown dataset: {dataset_name}")
+    
+    dataset_info = datasets[dataset_name]
+    df = dataset_info['data']
+    
+    # Convert to list of dicts
+    all_examples = df.to_dict('records')
+    random.shuffle(all_examples)
+    
+    # Fixed sizes
+    test_size = 100
+    # We need examples for: random_shot, similarity_baseline, and hybrid methods
+    # Zero-shot doesn't need examples, so we need k examples for 3 methods
+    demo_size = k * 3  # 3 methods that need demonstration examples
+    
+    total_needed = demo_size + test_size
+    
+    # Check if we have enough examples
+    if len(all_examples) < total_needed:
+        print(f"Warning: Dataset has only {len(all_examples)} examples but need {total_needed}")
+        print(f"Adjusting demo_size to {len(all_examples) - test_size}")
+        demo_size = len(all_examples) - test_size
+        if demo_size < k:
+            raise ValueError(f"Not enough examples in dataset. Need at least {k + test_size}, have {len(all_examples)}")
+    
+    # Split into demo pool and test set
+    demo_pool = all_examples[:demo_size]
+    test_examples = all_examples[demo_size:demo_size + test_size]
+    
+    print(f"Dataset size: {len(all_examples)}")
+    print(f"Demo pool size: {len(demo_pool)} (k={k} × 3 methods)")
+    print(f"Test set size: {len(test_examples)} (fixed at 100)")
+    
+    # Run all selection methods
+    methods = {}
+    
+    # Zero-shot
+    methods['zero_shot'] = zero_shot_selection(test_examples, dataset_name, output_dir)
+    
+    # Random-shot
+    methods['random_shot'] = random_shot_selection(demo_pool, test_examples, dataset_name, k, output_dir)
+    
+    # Similarity baseline
+    methods['similarity_baseline'] = similarity_baseline_selection(
+        demo_pool, test_examples, dataset_name, k, output_dir)
+    
+    # Hybrid similarity-diversity
+    methods['hybrid'] = hybrid_similarity_diversity_selection(
+        demo_pool, test_examples, dataset_name, k, output_dir)
+    
+    print(f"Completed example selection for {dataset_name}")
+    print("Generated files:")
+    for method, path in methods.items():
+        print(f"  {method}: {path}")
+    
+    return methods
+
 if __name__ == "__main__":
     # Run for all datasets
     datasets = ['mmlu', 'bb', 'gsm8k', 'sst2', 'sst5']
