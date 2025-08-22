@@ -377,6 +377,8 @@ def run_example_selection(dataset_name: str, k: int = 8, output_dir: str = "sele
     
     print(f"Demo pool size: {len(demo_pool)}")
     print(f"Test set size: {len(test_examples)}")
+
+    output_dir = output_dir +  ' ' + dataset_name
     
     # Run all selection methods
     methods = {}

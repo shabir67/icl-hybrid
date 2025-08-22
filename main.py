@@ -10,7 +10,7 @@ import json
 # Add current directory to path for imports
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from example_selection import run_example_selection run_example_selection_quick
+from example_selection import run_example_selection, run_example_selection_quick
 from inference_evaluation import run_full_evaluation, create_results_summary
 from utils import (
     create_experiment_config, 
@@ -42,6 +42,29 @@ def run_example_selection_pipeline(datasets: List[str], k: int = 16,
             continue
     
     print(f"\nExample selection completed! Files saved to: {output_dir}")
+
+def run_example_selection_pipeline_quick(datasets: List[str], k: int = 16,
+                                        output_dir: str = "selected_examples"):
+    """Run quick example selection for specified datasets with fixed sizing."""
+    print("="*60)
+    print("RUNNING QUICK EXAMPLE SELECTION PIPELINE")
+    print("="*60)
+    
+    setup_directories([output_dir])
+    
+    for dataset in datasets:
+        try:
+            print(f"\nProcessing {dataset.upper()}...")
+            run_example_selection_quick(
+                dataset_name=dataset,
+                k=k,
+                output_dir=output_dir
+            )
+        except Exception as e:
+            print(f"Error processing {dataset}: {e}")
+            continue
+    
+    print(f"\nQuick example selection completed! Files saved to: {output_dir}")
 
 def run_inference_pipeline(models: List[str], 
                           selected_examples_dir: str = "selected_examples",
@@ -97,9 +120,9 @@ def main():
                        default=['mmlu', 'bb', 'gsm8k', 'sst2', 'sst5'],
                        help='Datasets to process')
     parser.add_argument('--models', nargs='+',
-                       default=['qwen0.6b', 'qwen1.8b'],
+                       default=['qwen0.6b', 'qwen1.7b'],
                        help='Models to evaluate')
-    parser.add_argument('--k', type=int, default=16,
+    parser.add_argument('--k', type=int, default=8,
                        help='Number of examples to select')
     parser.add_argument('--n-iters', type=int, default=3,
                        help='Number of iterations for iterative methods')
@@ -155,8 +178,8 @@ def main():
         run_inference_pipeline(
             models=config['models'],
             selected_examples_dir=config['directories']['selected_examples'],
-            results_dir=config['directories']['results'],
-            plots_dir=config['directories']['plots']
+            results_dir='results',
+            plots_dir='plots'
         )
     
     print("\nPipeline completed!")
@@ -207,25 +230,26 @@ def quick_test():
     print("For full inference testing, submit an HPC job with GPU resources.")
 
 def quick_test_with_inference():
-    """Run a quick test including inference (requires GPU)."""
+    """Run a quick test including inference using the fast selection method."""
     print("Running quick test with inference for all datasets...")
-    print("WARNING: This requires GPU and will take longer!")
+    print("Using run_example_selection_quick for faster processing!")
     
     config = create_experiment_config(
         datasets=['mmlu', 'bb', 'gsm8k', 'sst2', 'sst5'],  # All datasets
         methods=['zero_shot', 'random_shot', 'similarity_baseline', 'hybrid'],  
-        models=['qwen0.6b', 'qwen1.7b'],  # Smallest model
-        k=4,   # Very small k for speed
+        models=['qwen0.6b', 'qwen1.7b'],  # Two smallest models
+        k=8,   # Reasonable k for speed
         n_iters=1,
-        demo_size=200,  # Very small for speed
-        test_size=20    # Very small test set
+        demo_size=200,  # This will be ignored by run_example_selection_quick
+        test_size=100    # Fixed at 100 by run_example_selection_quick
     )
     
     print_experiment_summary(config)  
     
-    # Run full pipeline
-    print("\nRunning example selection...")
-    run_example_selection_pipeline(
+    # Run example selection using the quick method
+    print("\nRunning quick example selection...")
+    print("Note: Using fixed sizes - 100 test examples, k*3 demo examples per dataset")
+    run_example_selection_pipeline_quick(
         datasets=config['datasets'],
         k=config['parameters']['k'],
         output_dir='test_selected_examples_with_inference'
@@ -242,6 +266,8 @@ def quick_test_with_inference():
     print("\n" + "="*60)
     print("FULL QUICK TEST COMPLETED!")
     print("="*60)
+    print("Results summary should be available in test_results/")
+    print("Plots should be available in test_plots/")
 
 if __name__ == "__main__":
     import sys

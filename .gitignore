@@ -1,8 +1,7 @@
 /final-project
 /results
 /__pycache__
-/selected_examples/*.pkl
-/test_selected_examples_with_inference/*.pkl
+/*/*.pkl
 /plots/*.png
 /test_results/*.json
 /test_results/*.csv
